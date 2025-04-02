@@ -1,0 +1,976 @@
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    1
+                                                        19:32:48  
+
+    1                   ; Wednesday 11-Apr-90 14:22:47
+    2                   * === boot.src =======================================
+    3                   * 
+    4                   * Handy Boot Code Main Routine  -  Handy ROM
+    5                   * 
+    6                   * Confidential and Proprietary
+    7                   * Copyright (C) 1989, Epyx, Inc.
+    8                   * 
+    9                   * Date		Name		Description
+   10                   * ---------	--------------	---------------------------
+   11                   * 10-Apr-90	SHL		Rewritten for smaller size, improved 
+   12                   *				and larger cartridge support
+   13                   * 20-Feb-90	SHL		Fixed bug causing ROM power to be dis
+   14                   *				during reads
+   15                   * 23 May 89	=RJ Mical=	Created this file!
+   16                   * 
+   17                   * ====================================================
+   18                   
+   19                   
+   20                   
+   21                   ;DEBUG		.EQ 1
+   22                   ;BUILDCHECK	.EQ 1
+   23                   
+   24      TRUE         	#IFNDEF DEBUG
+   25      TRUE         	  #IFNDEF BUILDCHECK
+   26      0001         REAL_VERSION .EQ 1
+   27                   	  #ENDIF
+   28                   	#ENDIF
+   29                   
+   30                   
+   31                   
+   32                   
+   33                   * ====================================================
+   34                   
+   40                   
+   41                   		.IN romsize.i
+    1      0000         ROMSIZE	.EQ 512*1024
+    2                   
+   42                   		.IN cartdefs.i
+    1                   
+    2                   * === cartdefs.i =====================================
+    3                   *
+    4                   * Cartridge Definitions for HandyAsm and HandyROM  -- 
+    5                   *
+    6                   * Confidential and Proprietary
+    7                   * Copyright (C) 1989, Epyx, Inc.
+    8                   *
+    9                   * Date       Name              Description
+   10                   * ---------  ----------------  -----------------------
+   11                   * 20-Apr-89  =RJ Mical=        Created this file!
+   12                   *
+   13                   * ====================================================
+   14                   
+   15                   
+   16      019A         ROM_HEADER_SIZE		.EQ 410
+   17                   
+   18                   
+   19      0000         ROMDIR_PAGE		.EQ 0
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    2
+                        cartdefs.i                      19:32:48  
+
+   20      0001         ROMDIR_OFFSET		.EQ 1
+   21      0003         ROMDIR_FLAG		.EQ 3
+   22      0004         ROMDIR_DEST		.EQ 4
+   23      0006         ROMDIR_SIZE		.EQ 6
+   24      0008         ROMDIR_ENTRY_SIZE	.EQ 8
+   25                   
+   26                   
+   27      0001         ROMFILE_ALIGN		.EQ 1
+   28                   
+   29                   
+   30      FALSE         #IFNDEF ROMSIZE
+   32                    #ENDIF
+   33                   
+   34                   
+   35      0100         ROMPAGECOUNT		.EQ 256
+   36                   
+   37                   
+   38                   
+   39      0800         ROMPAGESIZE		.EQ ROMSIZE/ROMPAGECOUNT
+   40      0000         ROMDIR_FILE0_PAGE	.EQ ROM_HEADER_SIZE/ROMPAGESIZE
+   41      019A         ROMDIR_FILE0_OFFSET	.EQ ROM_HEADER_SIZE-{ROMDIR_FILE0_
+   42      01A2         ROMDIR_FILE1_LOC	.EQ ROM_HEADER_SIZE+ROMDIR_ENTRY_SIZE
+   43      0000         ROMDIR_FILE1_PAGE	.EQ ROMDIR_FILE1_LOC/ROMPAGESIZE
+   44      01A2         ROMDIR_FILE1_OFFSET	.EQ ROMDIR_FILE1_LOC-{ROMDIR_FILE1
+   45                   
+   46                   
+   47                   
+   43                   		.IN romdir.i
+    1      0000         FILE0PAGE	.EQ $00
+    2      01AA         FILE0OFFSET	.EQ $01aa
+    3      2400         FILE0ADDRESS	.EQ $2400
+    4      0038         FILE0SIZE	.EQ $0038
+    5                   
+    6      0000         FILE1PAGE	.EQ $00
+    7      01E2         FILE1OFFSET	.EQ $01e2
+    8      630A         FILE1ADDRESS	.EQ $630a
+    9      158E         FILE1SIZE	.EQ $158e
+   10                   
+   11                   
+   44                   
+   45                   
+   46                   
+   47      FALSE        	#IF ROMPAGESIZE <512
+   52                   	#ENDIF
+   53                   
+   54      TRUE         	#IFNDEF ROM_SCREENBLANK_VALUE
+   55      0000         ROM_SCREENBLANK_VALUE	.EQ 0
+   56                   	#ENDIF
+   57                   
+   58                   
+   59                   
+   60                   * ====================================================
+   61                   
+   62      0000         R_PAGE		.EQ 0
+   63      0001         R_OFFSET	.EQ 1
+   64      0003         R_DEST		.EQ 3
+   65      0005         R_SIZE		.EQ 5
+   66      0007         R_ENTRY_SIZE	.EQ 7
+   67                   
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    3
+                                                        19:32:48  
+
+   68                   
+   69      0002         HASH_COUNT	.EQ 2
+   70      0008         NUMSHUFFLES	.EQ 8
+   71      0020         BUFFERLENGTH	.EQ 32	; 256 bits
+   72      0010         RESULTLENGTH	.EQ BUFFERLENGTH/2	; 128 bits
+   73                   
+   74      0032         SIZEKEY		.EQ 50
+   75                   
+   76      0200         BASE_ORG	.EQ $0200
+   77                   ;CHECK_ORG	.EQ BASE_ORG+SIZEKEY*5-RESULTLENGTH-1
+   78      0285         CHECK_ORG	.EQ BASE_ORG+SIZEKEY*3-RESULTLENGTH-1
+   79      0300         BASE2_ORG	.EQ $0300
+   80      03F9         CHECK2_ORG	.EQ BASE2_ORG+SIZEKEY*5-1
+   81      0400         DISPLAY_ORG	.EQ $0400	; Must be $xx00
+   82                   
+   83      2400         ENDADDRESS	.EQ DISPLAY_ORG+$2000
+   84                   
+   85                   
+   86      FE00         SETCARTBLOCK	.EQ $FE00
+   87      FE4A         RSA_LOAD	.EQ $FE4A
+   88                   
+   89                   
+   90                   
+   91                   * ====================================================
+   92                   * ===                       ==========================
+   93                   * ===  Zero-Page Variables  ==========================
+   94                   * ===                       ==========================
+   95                   * ====================================================
+   96                   
+   97 FFFE:             		.OR $0000
+   98                   
+   99                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  100                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  101                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  102                   * These are the variables as declared by the Mikey ROM
+  103                   
+  104                   * Note!  Dest is presumed to be at memory location zer
+  105 0000:             Dest		.DS	2
+  106                   
+  107 0002:             checksum	.ds 1		; checksum used during decryption
+  108                   
+  109 0003:             powerdowncount	.DS 2
+  110                   
+  111 0005:             ptr		.ds 2
+  112 0007:             num_blocks	.ds 1
+  113                   
+  114 0008:             bitcount	.DS 1		; temporary counter
+  115 0009:             bytecount	.DS 1		; temporary counter
+  116 000A:             temp0		.DS 1
+  117 000B:             acc0		.DS 2		; accumulator pointers
+  118 000D:             acc1		.DS 2
+  119 000F:             input1		.DS 2		; pointer to multiplicand
+  120 0011:             scratch0	.DS SIZEKEY	; scratch areas must be in zero p
+  121 0043:             scratch1	.DS SIZEKEY
+  122 0075:             scratch2	.DS SIZEKEY
+  123 00A7:             inputcode	.DS SIZEKEY
+  124      00A7         encrypted_area	.EQ inputcode
+  125                   
+  126                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    4
+                                                        19:32:48  
+
+  127                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  128                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  129                   
+  130 00D9:             		.OR $0000
+  131                   
+  132 0000:             tickler		.DS 1
+  133                   
+  134 0001:             ERASE_START
+  135                   
+  136 0001:             buffer0		.DS RESULTLENGTH
+  137 0011:             buffer1		.DS BUFFERLENGTH
+  138                   
+  139 0031:             hashpage	.ds 1
+  140 0032:             hashsubpage	.ds 1
+  141                   
+  142 0033:             ERASE_END
+  143                   
+  144 0033:             random		.DS 1
+  145 0034:             count		.DS 2
+  146                   
+  147 0036:             directory	.DS R_ENTRY_SIZE
+  148                   
+  149 003D:             hashloop	.DS 1
+  150                   
+  151 003E:             skipcount2	.DS 1
+  152                   
+  153                   
+  154                   
+  155                   * ====================================================
+  156                   * ====================================================
+  157                   
+  158                   	#MACRO ECHO_VALUE
+  159 MACRO             		.ECHO "Value of ?0 is ?%d0 ($?%x0)"
+  160                   	#ENDMACRO
+  161                   
+  162                   
+  163                   * ====================================================
+  164                   * ====================================================
+  165                   
+  166 003F:             		.OR BASE_ORG
+  167                   		.RU *
+  168                   
+  169      TRUE         	#IFDEF REAL_VERSION
+  170                   * Have the ROM load up RSA-encoded stuff starting at B
+  171                   
+  172                   		;-- This branch is here to allow the RSA decoding of
+  173                   		;-- block of data.  After the RSA, the ROM code jump
+  174                   		;-- BASE_ORG.  After the first RSA, this safe branch
+  175                   		;-- is taken.  Then the branch offset is later modif
+  176                   		;-- skip the loading and RSA'ing of the second page
+  177 0200:80 **        		BRA .10		; self mod
+  178 0202:             .10
+  179                   
+  180 0202:20 ** **     	JSR ClearPalette
+  181                   
+  182                   		;-- Set up the RSA pointer to the decode destination
+  183 0205:64 05        		STZ ptr
+  184                   ;		LDA #>BASE2_ORG
+  185                   ;		STA ptr+1
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    5
+                                                        19:32:48  
+
+  186 0207:E6 06        		inc ptr+1	; assumes BASE2_ORG is BASE_ORG+$100
+  187                   
+  188 0209:A9 08        		LDA #RESTLESS	; Make sure ROM is powered
+  189 020B:8D 8B FD     		STA IODAT
+  190                   
+  191 020E:4C 4A FE     		JMP RSA_LOAD
+  192 0211:             bootContinue
+  193                   	#ELSE
+  197                   	#ENDIF ; of #IFDEF REAL_VERSION
+  198                   
+  199                   		;-- Read the sprite display file
+  200 0211:A0 06        		ldy #6
+  201 0213:20 ** **     		JSR ReadFile
+  202                   
+  203                   		;-- Initialize and fire off the sprite engine
+  204 0216:A2 **        		LDX #SETVALS_COUNT
+  205 0218:BD ** **     .B0		  LDA SuzyValues-1,X
+  206 021B:BC ** **     		  LDY SuzyOffsets-1,X
+  207 021E:99 00 FC     		  STA $FC00,Y		; SUZY lives at $FC00
+  208 0221:CA           		  DEX
+  209 0222:D0 F4        		 bne .B0		; X will exit with zero
+  210                   
+  211                   		;-- Catch a snooze, letting Suzy drive the bus
+  212 0224:9C 91 FD     		STZ CPUSLEEP
+  213                   
+  214                   * Note:  I'm not clearing Suzy's Done-Acknowledge flag
+  215                   * all programs will clear it before starting, which al
+  216                   ;???		STZ SDONEACK
+  217                   
+  218                   		;-- Alright, finally display this picture
+  219                   ;		STZ DISPADRL		; this is true from MIKEY ROM
+  220 0227:A9 04        		LDA #>DISPLAY_ORG
+  221 0229:8D 95 FD     		STA DISPADRH
+  222                   
+  223                   
+  224                   		;-- Copy the palette to the hardware registers
+  225 022C:A0 1F        		LDY #31
+  226 022E:B9 00 24     .50		  LDA FILE0ADDRESS,Y
+  227 0231:99 A0 FD     		  STA GREEN0,Y
+  228 0234:88           		  DEY
+  229 0235:10 F7        		 BPL .50
+  230                   
+  231                   		;-- Initialize sbox with values from 0 to 255
+  232                   ;		LDX #0		; X = zero from above
+  233 0237:8A           .0		  TXA
+  234 0238:9D ** **     		  STA sbox,X
+  235 023B:E8           		  INX
+  236 023C:D0 F9        		 BNE .0
+  237                   
+  238                   
+  239 023E:4C ** **     		jmp MakeSbox
+  240                   
+  241                   
+  242                   * ====================================================
+  243                   
+  244                   
+  245                   
+  246 0241:             file01dir
+  247 0241:00           	.BY FILE0PAGE
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    6
+                                                        19:32:48  
+
+  248 0242:AA 01 00 24  	.WO FILE0OFFSET,FILE0ADDRESS,FILE0SIZE
+  248      38 00        
+  249                   
+  250 0248:00           	.BY FILE1PAGE
+  251 0249:E2 01 0A 63  	.WO FILE1OFFSET,FILE1ADDRESS,FILE1SIZE
+  251      8E 15        
+  252                   
+  253                   
+  254                   
+  255                   * ====================================================
+  256                   * ===                      ===========================
+  257                   * ===  Page 1 Subroutines  ===========================
+  258                   * ===                      ===========================
+  259                   * ====================================================
+  260                   
+  261                   
+  262 024F:             ClearPalette
+  263                   * ====================================================
+  264 024F:A2 1F        		ldx #31		; clear palette to black
+  265 0251:9E A0 FD     .50		  stz GREEN0,x
+  266 0254:CA           		  dex
+  267 0255:10 FA        		 BPL .50
+  268                   
+  269                   		;-- Turn off serial noise as early as possible
+  270 0257:A9 04        		LDA #TXOPEN
+  271 0259:8D 8C FD     		STA SERCTL
+  272                   
+  273      TRUE         	#IFDEF REAL_VERSION
+  274                   ;TEMP		;-- Set up the return branch 
+  275 025C:A9 0F        		LDA #bootContinue-BASE_ORG-2
+  276 025E:8D 01 02     		STA BASE_ORG+1			; Self-modify 
+  277                   	#ENDIF ; of #IFDEF REAL_VERSION
+  278                   
+  279 0261:60           		RTS
+  280                   
+  281                   
+  282 0262:             copydir
+  283 0262:A2 07        	ldx #7
+  284 0264:B9 41 02     .00	  lda file01dir,y
+  285 0267:95 35        	  sta directory-1,x
+  286 0269:88           	  dey
+  287 026A:CA           	  dex
+  288 026B:D0 F7        	 bne .00
+  289                   
+  290 026D:60           	rts
+  291                   
+  292                   
+  293                   
+  294                   
+  295                   * ====================================================
+  296                   * ====================================================
+  297                   
+  298                   
+  299 026E:             SuzyValues
+  300 026E:01           		.BYTE $01
+  301 026F:20           		.BYTE $20		; set NO_COLLIDE in SPRSYS
+  302 0270:04           		.BYTE >DISPLAY_ORG
+  303 0271:00           		.BYTE <DISPLAY_ORG	; should be left from MIKEY ROM
+  304 0272:01           		.BYTE $01
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    7
+                                                        19:32:48  
+
+  305 0273:00           		.BYTE $00
+  306 0274:00           		.BYTE $00
+  307 0275:24           		.BYTE >{FILE0ADDRESS+32}
+  308 0276:20           		.BYTE <{FILE0ADDRESS+32}
+  309                   ;		.BYTE $7F		; almost any value $0000-$00ff will do
+  310                   ;		.BYTE $7F
+  311                   
+  312                   
+  313 0277:             SuzyOffsets
+  314 0277:91           		.BYTE <SPRGO
+  315 0278:92           		.BYTE <SPRSYS		; set NO_COLLIDE in SPRSYS
+  316 0279:09           		.BYTE <VIDBASH
+  317 027A:08           		.BYTE <VIDBASL		; should be left from MIKEY ROM
+  318 027B:90           		.BYTE <SUZYBUSEN
+  319 027C:04           		.BYTE <HOFFL
+  320 027D:06           		.BYTE <VOFFL
+  321 027E:11           		.BYTE <SCBNEXTH
+  322 027F:10           		.BYTE <SCBNEXTL
+  323 0280:28           		.BYTE <HSIZOFFL
+  324 0281:2A           		.BYTE <VSIZOFFL
+  325                   
+  326      000B         SETVALS_COUNT	.EQ *-SuzyOffsets	; number of values to 
+  327                   
+  328                   
+  329                   
+  330 0282:47           random1		.BY $47			; initialized variable
+  331 0283:39           random2		.BY $39			; initialized variable
+  332                   
+  333                   
+  334                   
+  335                   * ====================================================
+  336                   
+  337      TRUE         	#IFDEF REAL_VERSION
+  338                   
+  339      0001         free1 .= CHECK_ORG-*
+  340                   
+  341                   	  ECHO_VALUE free1
+    1                 + 		.ECHO "Value of free1 is 1 ($1)"
+    2                 + 
+  342                   
+  343 0284:             		.OR CHECK_ORG
+  344                   	#ENDIF
+  345                   
+  346 0285:             checkstring
+  347                   		.IN checkstring.src ; Must be exactly RESULTLENGTH b
+    1 0285:1C B2 63 95  	.HS 1cb263954f8a3fd9e99a00b3bb687a2d
+    1      4F 8A 3F D9  
+    1      E9 9A 00 B3  
+    1      BB 68 7A 2D  
+    1                   
+    2                   
+    3                   
+  348                   
+  349                   
+  350                   
+  351      TRUE         	#IFDEF REAL_VERSION
+  352                   * Last byte must be zero
+  353 0295:00           		.BYTE	0
+  354                   		.TF boot2.bin
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    8
+                                                        19:32:48  
+
+  355 0296:             		.OR BASE2_ORG
+  356                   	#ENDIF
+  357                   
+  358                   * ====================================================
+  359                   * ====================================================
+  360                   * ====================================================
+  361                   
+  362                   
+  363                   * ====================================================
+  364                   * ===                      ===========================
+  365                   * ===  Page 2 Subroutines  ===========================
+  366                   * ===                      ===========================
+  367                   * ====================================================
+  368                   
+  369                   
+  370 0300:             ReadFile
+  371                   * ====================================================
+  372                   
+  373 0300:20 62 02     		jsr copydir
+  374                   
+  375                   		;-- Complement the file size bytes, to facilitate bo
+  376 0303:E6 3B        		inc directory+R_SIZE
+  377 0305:E6 3C        		inc directory+R_SIZE+1
+  378                   
+  379 0307:             setCartAddress
+  380                   		;-- Set the cart address to the data of this file
+  381 0307:A5 36        		LDA directory+R_PAGE
+  382 0309:20 00 FE     		jsr SETCARTBLOCK
+  383                   
+  384 030C:A6 37        		ldx directory+R_OFFSET
+  385 030E:E8           		inx
+  386 030F:A4 38        		ldy directory+R_OFFSET+1
+  387 0311:C8           		iny
+  388 0312:20 ** **     		JSR SetCartOffset
+  389                   
+  390 0315:38           	sec			; get complement of bytes remaining in page
+  391                   ;	lda directory+R_OFFSET
+  392                   ;	sbc #<ROMPAGESIZE		
+  393                   ;	tax
+  394 0316:A6 37        	ldx directory+R_OFFSET	; no need to do above subtract
+  395 0318:A5 38        	lda directory+R_OFFSET+1
+  396 031A:E9 08        	sbc #>ROMPAGESIZE
+  397 031C:A8           	tay
+  398                   
+  399 031D:             readDataLoop	;-- While there's still data to read, do 
+  400 031D:C6 3B        		dec directory+R_SIZE
+  401 031F:D0 **        		BNE .10
+  402 0321:C6 3C        		dec directory+R_SIZE+1
+  403 0323:F0 **        		BEQ dataDone
+  404 0325:             .10
+  405                   		;-- Get the next byte and bump the RAM address
+  406 0325:AD B2 FC     		LDA RCART_0
+  407 0328:92 39        		STA (directory+R_DEST)
+  408 032A:E6 39        		INC directory+R_DEST
+  409 032C:D0 **        		BNE .20
+  410 032E:E6 3A        		INC directory+R_DEST+1
+  411                   
+  412                   		;-- Bump the cart page offset counter
+  413 0330:E8           .20		INX
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page    9
+                                                        19:32:48  
+
+  414 0331:D0 EA        		BNE readDataLoop
+  415 0333:C8           		INY
+  416 0334:D0 E7        		BNE readDataLoop
+  417                   
+  418                   		;-- Reached end of page, so go to next
+  419 0336:E6 36        		INC directory+R_PAGE
+  420                   
+  421                   		;-- Indicate that there's a whole page to read
+  422 0338:64 37        		STZ directory+R_OFFSET
+  423 033A:64 38        		STZ directory+R_OFFSET+1
+  424 033C:80 C9        		BRA setCartAddress
+  425                   
+  426 033E:60           dataDone	RTS
+  427                   
+  428                   
+  429                   
+  430                   * ====================================================
+  431                   
+  432 033F:             SetCartOffsetLoop
+  433 033F:AD B2 FC     		    lda RCART_0
+  434                   
+  435 0342:             SetCartOffset
+  436 0342:CA           .05		    dex
+  437 0343:D0 FA        		   BNE SetCartOffsetLoop
+  438 0345:88           		  dey
+  439 0346:D0 F7        		 BNE SetCartOffsetLoop
+  440                   
+  441 0348:60           		RTS
+  442                   
+  443                   
+  444                   
+  445                   
+  446 0349:             MakeSbox
+  447                   * Check that the data is good
+  448                   * Perform the oneway hash function on the data and che
+  449                   * the result matches the signature.  
+  450                   * If the signature matches, the routine returns.  If n
+  451                   
+  452                   * Make sbox, the special 256 byte permutation table.
+  453                   * The table will have values from 0 to 255 all shuffle
+  454                   
+  455                   		;-- Initialize the poly-counter random number
+  456 0349:A9 12        		LDA #$12
+  457 034B:85 33        		STA random
+  458                   ;		LDA #$47	; pre-initialized variables
+  459                   ;		STA random1
+  460                   ;		LDA #$39
+  461                   ;		STA random2
+  462                   
+  463                   		;-- For NUMSHUFFLES times, pass through the entire a
+  464                   		;-- swapping the nth entry with a random entry
+  465                   
+  466                   		;-- Do once pass through sbox, swapping entries
+  467                   ;		LDX #0		; X = zero from above
+  468                   
+  469                   		;-- Get a random index, use it to swap the X'th sbox
+  470                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  471                   * Polynomial count pseudo-random generator, period 2**
+  472 034D:A5 33        .2		    LDA random
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page   10
+                                                        19:32:48  
+
+  473 034F:4A           		    LSR a
+  474 0350:4A           		    LSR a
+  475 0351:E5 33        		    SBC random
+  476 0353:4A           		    LSR a
+  477 0354:2E 82 02     		    ROL random1
+  478 0357:2E 83 02     		    ROL random2
+  479 035A:66 33        		    ROR random
+  480 035C:A5 33        		    LDA random
+  481 035E:6D 82 02     		    ADC random1
+  482 0361:4D 83 02     		    EOR random2
+  483                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  484                   
+  485 0364:A8           		    TAY			; Use this as the swap index
+  486 0365:BD ** **     		    LDA sbox,X		; and do the swap
+  487 0368:48           		     PHA
+  488 0369:B9 ** **     		      LDA sbox,Y
+  489 036C:9D ** **     		      STA sbox,X
+  490 036F:68           		     PLA
+  491 0370:99 ** **     		    STA sbox,Y
+  492                   	
+  493 0373:E8           		    INX
+  494 0374:D0 D7        		   BNE .2
+  495                   
+  496 0376:CE ** **     		  DEC sboxloop
+  497 0379:D0 D2        		 BNE .2
+  498                   
+  499                   
+  500 037B:             LoadAndHash
+  501                   * ====================================================
+  502                   * Loads 256 bytes from the page specified in Y, hashes
+  503                   * 
+  504                   * ON ENTRY:
+  505                   *   - Y defines cart page to be loaded
+  506                   *   - hashcontrol defines the number of passes for the
+  507                   
+  508 037B:A2 32        	ldx #ERASE_END-ERASE_START
+  509 037D:74 00        .10	  stz buffer0-1,x	; start off initializing buffer0
+  510 037F:CA           	  dex
+  511 0380:D0 FB        	 bne .10
+  512                   
+  513 0382:A5 31        .f0	  lda hashpage
+  514 0384:20 00 FE     	  jsr SETCARTBLOCK
+  515                   
+  516 0387:AD B0 FC     	  lda JOYSTICK		; clear screen if user pressed stick
+  517 038A:F0 **        	  beq .f1
+  518 038C:20 4F 02     	  jsr ClearPalette
+  519                   
+  520 038F:A9 10        .f1	  lda #256/RESULTLENGTH
+  521 0391:85 32        	  sta hashsubpage
+  522                   
+  523 0393:38           .f2	      sec
+  524 0394:A2 10        	      ldx #RESULTLENGTH
+  525 0396:AD B2 FC     .f3		lda RCART_0	; get byte from cart
+  526      TRUE          #IF ROMPAGESIZE/256>2
+  527 0399:A0 07        		ldy #{ROMPAGESIZE/256}-1
+  528                    #ENDIF
+  529 039B:6D B2 FC     .f4		  adc RCART_0	; combine with next bytes
+  530      TRUE          #IF ROMPAGESIZE/256>2
+  531 039E:88           		  dey
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page   11
+                                                        19:32:48  
+
+  532 039F:D0 FA        		 bne .f4
+  533                    #ENDIF
+  534 03A1:95 20        		sta buffer1+RESULTLENGTH-1,x
+  535 03A3:CA           		dex
+  536 03A4:D0 F0        	       bne .f3		; loop exits with x = 0
+  537 03A6:4E ** **     	      lsr skipcount
+  538      FALSE         #IF ROMSIZE=128*1024
+  540                    #ENDIF
+  541 03A9:D0 **        	     bne .4
+  542                   
+  543                   
+  544                   
+  545                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  546                   * Do the actual hash of the current buffer
+  547                   
+  548 03AB:A9 02        	    LDA #HASH_COUNT
+  549 03AD:85 3D        	    STA hashloop
+  550                   
+  551 03AF:8A           	    TXA			; initialize A to zero
+  552 03B0:64 00        	    STZ tickler
+  553 03B2:18           	    CLC
+  554 03B3:A2 1F        .1	      LDX #BUFFERLENGTH-1	; Count through buffer
+  555 03B5:75 11        .0		ADC buffer1,X
+  556 03B7:95 11        		STA buffer1,X
+  557 03B9:65 00        		ADC tickler
+  558 03BB:A8           		TAY
+  559 03BC:B9 ** **     		LDA sbox,Y
+  560 03BF:E6 00        		INC tickler
+  561 03C1:CA           		DEX
+  562 03C2:10 F1        	       BPL .0
+  563 03C4:C6 3D        	      DEC hashloop
+  564 03C6:D0 EB        	     BNE .1
+  565                   
+  566 03C8:A2 10        	    LDX #RESULTLENGTH	; Exclusive-or with original bu
+  567 03CA:B5 00        .3	      LDA buffer0-1,X	; and copy back over first n 
+  568 03CC:55 10        	      EOR buffer1-1,X
+  569 03CE:95 00        	      STA buffer0-1,X
+  570 03D0:95 10        	      STA buffer1-1,X
+  571 03D2:CA           	      DEX
+  572 03D3:D0 F5        	     BNE .3
+  573                   * - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  574                   
+  575 03D5:C6 32        .4	    dec hashsubpage
+  576 03D7:D0 BA        	   bne .f2
+  577 03D9:E6 31        	  inc hashpage
+  578 03DB:D0 A5        	 bne .f0
+  579                   
+  580                   
+  581 03DD:             terminate
+  582                   		;-- OK, hash string created.  
+  583                   		;-- If we're building the checkstring, then break he
+  584                   		;-- else check the hash with the required value
+  585      FALSE        	#IFDEF BUILDCHECK
+  588                   	#ELSE 
+  589 03DD:A2 0F        		LDX #RESULTLENGTH-1	; Check final result to see 
+  590 03DF:B5 01        check		  LDA buffer0,X		; if it checks out
+  591 03E1:DD 85 02     		  CMP checkstring,X	; If value isn't equal
+  592 03E4:D0 FE        fail		  BNE fail		; loop here for a really long time
+  593 03E6:CA           		  DEX
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page   12
+                                                        19:32:48  
+
+  594 03E7:10 F6        		 BPL check
+  595                   
+  596                   * Hash checks out OK!
+  597                   * Clear the display to a shade of grey, then load and 
+  598                   
+  599 03E9:20 4F 02     		JSR ClearPalette
+  600                   
+  601 03EC:A0 0D        		ldy #R_ENTRY_SIZE*2-1
+  602 03EE:20 00 03     		JSR ReadFile
+  603                   
+  604 03F1:6C 4B 02     		JMP (file01dir+R_ENTRY_SIZE+R_DEST)
+  605                   	#ENDIF
+  606                   
+  607                   
+  608                   
+  609                   
+  610                   * ====================================================
+  611                   * ===                       ==========================
+  612                   * ===  Preinitialized Data  ==========================
+  613                   * ===                       ==========================
+  614                   * ====================================================
+  615                   
+  616                   
+  617 03F4:             skipcount
+  618      FALSE        	#IF ROMSIZE=128*1024
+  620                   	#ENDIF
+  621      FALSE        	#IF ROMSIZE=256*1024
+  623                   	#ENDIF
+  624      TRUE         	#IF ROMSIZE=512*1024
+  625 03F4:1F           		.BY %00011111	; rotate 4 times
+  626                   	#ENDIF
+  627      FALSE        	#IF *=skipcount
+  629                   	#ENDIF
+  630                   
+  631                   
+  632 03F5:08           sboxloop	.BY NUMSHUFFLES		; initialized variable
+  633                   
+  634                   
+  635                   
+  636                   * ====================================================
+  637                   * ====================================================
+  638                   * ====================================================
+  639                   
+  640                   
+  641                   
+  642                   
+  643                   * Last byte must be zero
+  644      TRUE         	#IFDEF REAL_VERSION
+  645      0003         free2	.= CHECK2_ORG-*
+  646                   
+  647                   	  ECHO_VALUE free2
+    1                 + 		.ECHO "Value of free2 is 3 ($3)"
+    2                 + 
+  648                   
+  649      0004         free	.= free1+free2
+  650                   
+  651                   	  ECHO_VALUE free
+    1                 + 		.ECHO "Value of free is 4 ($4)"
+    2                 + 
+Epyx HandyAsm 1.08      boot                            19-Mar-12519:32:48 Page   13
+                                                        19:32:48  
+
+  652                   
+  653 03F6:             		.OR CHECK2_ORG
+  654 03F9:00           		.BYTE	0
+  655      002E         nextfree .= SIZEKEY-free
+  656                   
+  657                   	#ELSE
+  664                   	#ENDIF ; of #IFDEF REAL_VERSION
+  665                   
+  666                   
+  667                   * ====================================================
+  668 03FA:             		.OR ENDADDRESS
+  669 2400:             sbox		.DS $100
+  670                   
+  671                   
+  672                   
+Epyx HandyAsm 1.08      Symbols                         19-Mar-12519:32:48 Page   14
+                                                        19:32:48  
+
+$0040 ACCUMULATE                        $0040 ALGO_3
+$0000 ASM.EQUSYMS                       $0900 ASM.VERSION
+$FD40 ATTENREG0                         $FD41 ATTENREG1
+$FD42 ATTENREG2                         $FD43 ATTENREG3
+$FD86 AUDIN                             $0010 AUDIN_BIT
+$FD20 AUDIO0                            $FD28 AUDIO1
+$FD30 AUDIO2                            $FD38 AUDIO3
+$0000 AUD_1                             $0004 AUD_16
+$0001 AUD_2                             $0005 AUD_32
+$0002 AUD_4                             $0006 AUD_64
+$0003 AUD_8                             $0004 AUD_BACKUP
+$0007 AUD_CLOCK_MASK                    $0005 AUD_CONTROL
+$0006 AUD_COUNTER                       $0001 AUD_FEEDBACK
+$0007 AUD_LINKING                       $0007 AUD_OTHER
+$0002 AUD_OUTPUT                        $0003 AUD_SHIFT
+$0000 AUD_VOLCNTRL                      $0000 BACKGROUND_SPRITE
+$0001 BACKNONCOLL_SPRITE                $0000 BACK_SHADOW_SPRITE
+$0300 BASE2_ORG                         $0200 BASE_ORG
+$00C0 BITS_MASK                         $FDB0 BLUERED0
+$FDB1 BLUERED1                          $FDB2 BLUERED2
+$FDB3 BLUERED3                          $FDB4 BLUERED4
+$FDB5 BLUERED5                          $FDB6 BLUERED6
+$FDB7 BLUERED7                          $FDB8 BLUERED8
+$FDB9 BLUERED9                          $FDBA BLUEREDA
+$FDBB BLUEREDB                          $FDBC BLUEREDC
+$FDBD BLUEREDD                          $FDBE BLUEREDE
+$FDBF BLUEREDF                          $0002 BORROW_IN
+$0001 BORROW_OUT                        $0003 BOUNDARY_SPRITE
+$0002 BSHADOW_SPRITE                    $0020 BUFFERLENGTH
+$0002 CART0_IO_INACTIVE                 $0004 CART1_IO_INACTIVE
+$0002 CART_ADDR_DATA                    $0001 CART_ADDR_STROBE
+$0002 CART_POWER_OFF                    $03F9 CHECK2_ORG
+$0285 CHECK_ORG                         $FC0F COLLADRH
+$FC0E COLLADRL                          $FC0B COLLBASH
+$FC0A COLLBASL                          $FC25 COLLOFFH
+$FC24 COLLOFFL                          $FD91 CPUSLEEP
+$FFFE CPU_IRQ                           $FFFA CPU_NMI
+$FFFC CPU_RESET                         $024F ClearPalette
+$FD95 DISPADRH                          $FD94 DISPADRL
+$FD92 DISPCTL                           $1FE0 DISPLAY_BUFSIZE
+$0400 DISPLAY_ORG                       $0008 DISP_COLOR
+$0002 DISP_FLIP                         $0004 DISP_FOURBIT
+$0001 DMA_ENABLE                        $0001 DRAW_LEFT
+$0002 DRAW_UP                           $0000 Dest
+MACRO ECHO_VALUE                        $0008 ENABLE_COUNT
+$0080 ENABLE_INT                        $0020 ENABLE_INTEGRATE
+$0010 ENABLE_RELOAD                     $2400 ENDADDRESS
+$0033 ERASE_END                         $0001 ERASE_START
+$0004 EVER_ON                           $0001 EXTERNAL_POWER
+$0080 FEEDBACK_7                        $2400 FILE0ADDRESS
+$01AA FILE0OFFSET                       $0000 FILE0PAGE
+$0038 FILE0SIZE                         $630A FILE1ADDRESS
+$01E2 FILE1OFFSET                       $0000 FILE1PAGE
+$158E FILE1SIZE                         $0004 FLIP_BUTTON
+$00C0 FOUR_PER_PIXEL                    $0004 FRAMERR
+$FDA0 GREEN0                            $FDA1 GREEN1
+$FDA2 GREEN2                            $FDA3 GREEN3
+$FDA4 GREEN4                            $FDA5 GREEN5
+Epyx HandyAsm 1.08      Symbols                         19-Mar-12519:32:48 Page   15
+                                                        19:32:48  
+
+$FDA6 GREEN6                            $FDA7 GREEN7
+$FDA8 GREEN8                            $FDA9 GREEN9
+$FDAA GREENA                            $FDAB GREENB
+$FDAC GREENC                            $FDAD GREEND
+$FDAE GREENE                            $FDAF GREENF
+$FC00 HARDWARE_START                    $0002 HASH_COUNT
+$FD00 HCOUNT                            $0020 HFLIP
+$FC05 HOFFH                             $FC04 HOFFL
+$0001 HORIZONTAL_INT                    $FCC4 HOWIE
+$FC15 HPOSSTRTH                         $FC14 HPOSSTRTL
+$FC29 HSIZOFFH                          $FC28 HSIZOFFL
+$0002 INNER_BUTTON                      $FD80 INTRST
+$FD81 INTSET                            $FD8B IODAT
+$FD8A IODIR                             $FCC3 IOData
+$FCC2 IOStatus                          $FCB0 JOYSTICK
+$0080 JOY_DOWN                          $0010 JOY_LEFT
+$0020 JOY_RIGHT                         $0040 JOY_UP
+$0004 LAST_CLOCK                        $FCC0 LEDS
+$0010 LEFT0_SELECT                      $0020 LEFT1_SELECT
+$0040 LEFT2_SELECT                      $0080 LEFT3_SELECT
+$0008 LEFTHAND                          $0008 LEFTHANDED
+$000F LEFT_ATTENMASK                    $0080 LITERAL
+$037B LoadAndHash                       $FD04 MAG0A
+$FD0C MAG0B                             $FD14 MAG1A
+$FD1C MAG1B                             $FFF9 MAPCTL
+$FC55 MATHA                             $FC54 MATHB
+$FC53 MATHC                             $0020 MATHCARRY
+$FC52 MATHD                             $FC63 MATHE
+$FC62 MATHF                             $FC61 MATHG
+$FC60 MATHH                             $FC6F MATHJ
+$FC6E MATHK                             $FC6D MATHL
+$FC6C MATHM                             $FC57 MATHN
+$FC56 MATHP                             $0040 MATHWARNING
+$0080 MATHWORKING                       $FD88 MIKEYHREV
+$FD89 MIKEYSREV                         $0002 MIKEY_SPACE
+$FD44 MPAN                              $FD50 MSTEREO
+$FD9C MTEST0                            $FD9D MTEST1
+$FD9E MTEST2                            $0349 MakeSbox
+$0004 NOEXP                             $0005 NONCOLL_SPRITE
+$0004 NORMAL_SPRITE                     $0020 NO_COLLIDE
+$0008 NUMSHUFFLES                       $0000 ONE_PER_PIXEL
+$0008 OPTION1_BUTTON                    $0004 OPTION2_BUTTON
+$0001 OUTER_BUTTON                      $0008 OVERRUN
+$0001 PARBIT                            $0010 PAREN
+$0010 PARERR                            $0001 PAREVEN
+$0001 PAUSE_SWITCH                      $FD93 PBKUP
+$0002 POWERON                           $FC2F PROCADRH
+$FC2E PROCADRL                          $FCB2 RCART_0
+$FCB3 RCART_1                           $0001 REAL_VERSION
+$0010 RELOAD_HV                         $0020 RELOAD_HVS
+$0030 RELOAD_HVST                       $0030 RELOAD_MASK
+$0000 RELOAD_NONE                       $0008 RESETERR
+$0040 RESET_DONE                        $0008 RESTART_BUTTON
+$0008 RESTLESS                          $0010 RESULTLENGTH
+$0008 REUSE_PALETTE                     $0001 RIGHT0_SELECT
+$0002 RIGHT1_SELECT                     $0004 RIGHT2_SELECT
+$0008 RIGHT3_SELECT                     $00F0 RIGHT_ATTENMASK
+$0004 ROMDIR_DEST                       $0008 ROMDIR_ENTRY_SIZE
+$019A ROMDIR_FILE0_OFFSET               $0000 ROMDIR_FILE0_PAGE
+Epyx HandyAsm 1.08      Symbols                         19-Mar-12519:32:48 Page   16
+                                                        19:32:48  
+
+$01A2 ROMDIR_FILE1_LOC                  $01A2 ROMDIR_FILE1_OFFSET
+$0000 ROMDIR_FILE1_PAGE                 $0003 ROMDIR_FLAG
+$0001 ROMDIR_OFFSET                     $0000 ROMDIR_PAGE
+$0006 ROMDIR_SIZE                       $0001 ROMFILE_ALIGN
+$0100 ROMPAGECOUNT                      $0800 ROMPAGESIZE
+$0000 ROMSIZE                           $019A ROM_HEADER_SIZE
+$0000 ROM_SCREENBLANK_VALUE             $0004 ROM_SPACE
+$FE4A RSA_LOAD                          $0002 RXBRK
+$0040 RXINTEN                           $0040 RXRDY
+$0003 R_DEST                            $0007 R_ENTRY_SIZE
+$0001 R_OFFSET                          $0000 R_PAGE
+$0005 R_SIZE                            $0300 ReadFile
+$FC2D SCBADRH                           $FC2C SCBADRL
+$FC11 SCBNEXTH                          $FC10 SCBNEXTL
+$FC23 SCVPOSH                           $FC22 SCVPOSL
+$FD90 SDONEACK                          $FD8C SERCTL
+$FD8D SERDAT                            $FD10 SERIALRATE
+$0010 SERIAL_INT                        $FE00 SETCARTBLOCK
+$000B SETVALS_COUNT                     $0007 SHADOW_SPRITE
+$0080 SIGNMATH                          $0032 SIZEKEY
+$0004 SKIP_SPRITE                       $FC82 SPRCOLL
+$FC80 SPRCTL0                           $FC81 SPRCTL1
+$FC13 SPRDLINEH                         $FC12 SPRDLINEL
+$FC21 SPRDOFFH                          $FC20 SPRDOFFL
+$FC91 SPRGO                             $FC19 SPRHSIZH
+$FC18 SPRHSIZL                          $FC83 SPRINIT
+$0002 SPRITESTOP                        $0002 SPRITETOSTOP
+$0001 SPRITEWORKING                     $0001 SPRITE_GO
+$FC92 SPRSYS                            $FC1B SPRVSIZH
+$FC1A SPRVSIZL                          $FC1D STRETCHH
+$FC1C STRETCHL                          $FC90 SUZYBUSEN
+$FC88 SUZYHREV                          $FC89 SUZYSREV
+$FC92 SUZY_ADDRESS                      $0001 SUZY_SPACE
+$FCB1 SWITCHES                          $FD87 SYSCTL1
+$0342 SetCartOffset                     $033F SetCartOffsetLoop
+$0277 SuzyOffsets                       $026E SuzyValues
+$0080 THREE_PER_PIXEL                   $FC03 TILTACUMH
+$FC02 TILTACUML                         $FC1F TILTH
+$FC1E TILTL                             $FD00 TIMER0
+$0001 TIMER0_INT                        $FD04 TIMER1
+$0002 TIMER1_INT                        $FD08 TIMER2
+$0004 TIMER2_INT                        $FD0C TIMER3
+$0008 TIMER3_INT                        $FD10 TIMER4
+$FD14 TIMER5                            $0020 TIMER5_INT
+$FD18 TIMER6                            $0040 TIMER6_INT
+$FD1C TIMER7                            $0080 TIMER7_INT
+$0008 TIMER_DONE                        $0000 TIM_BACKUP
+$0001 TIM_CONTROLA                      $0003 TIM_CONTROLB
+$0002 TIM_COUNT                         $FC01 TMPADRH
+$FC00 TMPADRL                           $0080 TURBO_DISABLE
+$0040 TWO_PER_PIXEL                     $0002 TXBRK
+$0020 TXEMPTY                           $0080 TXINTEN
+$0004 TXOPEN                            $0080 TXRDY
+$0004 UNSAFEACCESS                      $0004 UNSAFEACCESSRST
+$FD08 VCOUNT                            $0008 VECTOR_SPACE
+$0004 VERTICAL_INT                      $0010 VFLIP
+$FC0D VIDADRH                           $FC0C VIDADRL
+$FC09 VIDBASH                           $FC08 VIDBASL
+$FC07 VOFFH                             $FC06 VOFFL
+Epyx HandyAsm 1.08      Symbols                         19-Mar-12519:32:48 Page   17
+                                                        19:32:48  
+
+$FC17 VPOSSTRTH                         $FC16 VPOSSTRTL
+$FC27 VSIZACUMH                         $FC26 VSIZACUML
+$FC2B VSIZOFFH                          $FC2A VSIZOFFL
+$0010 VSTRETCH                          $0010 VSTRETCHING
+$0006 XOR_SHADOW_SPRITE                 $0006 XOR_SPRITE
+$000B acc0                              $000D acc1
+$0008 bitcount                          $0211 bootContinue
+$0001 buffer0                           $0011 buffer1
+$0009 bytecount                         $03DF check
+$0285 checkstring                       $0002 checksum
+$0262 copydir                           $0034 count
+$033E dataDone                          $0036 directory
+$00A7 encrypted_area                    $03E4 fail
+$0241 file01dir                         $0004 free
+$0001 free1                             $0003 free2
+$003D hashloop                          $0031 hashpage
+$0032 hashsubpage                       $000F input1
+$00A7 inputcode                         $002E nextfree
+$0007 num_blocks                        $0003 powerdowncount
+$0005 ptr                               $0033 random
+$0282 random1                           $0283 random2
+$031D readDataLoop                      $2400 sbox
+$03F5 sboxloop                          $0011 scratch0
+$0043 scratch1                          $0075 scratch2
+$0307 setCartAddress                    $03F4 skipcount
+$003E skipcount2                        $000A temp0
+$03DD terminate                         $0000 tickler
