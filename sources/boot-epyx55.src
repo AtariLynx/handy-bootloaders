@@ -133,10 +133,10 @@ random1		.DS 1
 random2		.DS 1
 count		.DS 2
 
-var46		.DS 1
-var47		.DS 1
-var48		.DS 1
-var49		.DS 1
+var46		.DS 1 ; directory+ROMDIR_DEST
+var47		.DS 1 ; directory+ROMDIR_DEST+1
+var48		.DS 1 ; directory+ROMDIR_SIZE
+var49		.DS 1 ; directory+ROMDIR_SIZE+1
 
 directory	.DS ROMDIR_ENTRY_SIZE
 
@@ -144,7 +144,7 @@ directory	.DS ROMDIR_ENTRY_SIZE
 hashsubpage	.DS 1 ; 52
 hashloop	.DS 1 ; 53
 
-skipcount2	.DS 1
+; skipcount2	.DS 1
 
 * ===========================================================================
 * ===========================================================================
@@ -178,12 +178,6 @@ skipcount2	.DS 1
 		LDA #>BASE2_ORG
 		STA ptr+1
 
-
-;		inc ptr+1	; assumes BASE2_ORG is BASE_ORG+$100
-
-;		LDA #RESTLESS	; Make sure ROM is powered
-;		STA IODAT
-
 		JMP RSA_LOAD
 bootContinue
 	#ELSE
@@ -191,11 +185,6 @@ bootContinue
 		lda #3		; set IODIR the way Mikey ROM does
 		sta IODIR
 	#ENDIF ; of #IFDEF REAL_VERSION
-
-;// TODO: Should include?
-;		;-- Read the sprite display file
-;		ldy #6
-;		JSR ReadFile
 
         LDA #1
         JSR PrepareShiftRegister
@@ -209,7 +198,6 @@ bootContinue
         STA SCBNEXTH
 
 		;-- Initialize and fire off the sprite engine
-		; TODO: Check logic for loop with SETVALS_COUNT
 		LDX #SETVALS_COUNT-1
 .B0		  LDA SuzyValues,X
 		  LDY SuzyOffsets,X
@@ -286,7 +274,7 @@ MakeSbox
 		    TAY			; Use this as the swap index
 		    LDA sbox,X		; and do the swap
 		     PHA
-		      LDA sbox,Y ; TODO: Set sbox to $A300
+		      LDA sbox,Y
 		      STA sbox,X
 		     PLA
 		    STA sbox,Y
@@ -299,14 +287,15 @@ MakeSbox
 
 * ===========================================================================
 
-		ldy #$01		; 
-		JSR $035B		; Do checksum
-		LDA #$D0
+; TODO: Find original code
+		ldy #$01
+		JSR checksum
+		LDA #$d0
 		STA $0372		; Modify $372 from BPL $0365 to BNE $0365
 		LDY #$81
 		LDA #$02
 		STA $03F8
-		JSR $035B		; Do checksum again
+		JSR checksum
 
 terminate
 		;-- OK, hash string created.  
@@ -330,8 +319,8 @@ fail	BNE fail		    ; loop here for a really long time
 
     	LDA #1
         JSR PrepareShiftRegister
-        LDX #$F7
-        LDY #$FF
+        LDX #$f7
+        LDY #$ff
         JSR SetCartOffset
         JSR copydir
 
@@ -402,7 +391,7 @@ free1 .= CHECK_ORG-*
 checkstring
 		.IN checkstring.src ; Must be exactly RESULTLENGTH bytes long
 
-    .BY 0, 0, 0, 0, 0, 0
+    	.BYTE	0, 0, 0, 0, 0, 0
 
 
 	#IFDEF REAL_VERSION
@@ -424,38 +413,27 @@ checkstring
 * ===========================================================================
 
 copydir
-	ldx #0
-.00	  lda RCART_0
-	  sta directory,x
-	  inx
-      cpx #ROMDIR_ENTRY_SIZE
-	bcc .00
+		ldx #0
+.00		  lda RCART_0
+		  sta directory,x
+		  inx
+    	  cpx #ROMDIR_ENTRY_SIZE
+		bcc .00
 
-    lda directory+ROMDIR_SIZE
-    eor #$FF
-    sta directory+ROMDIR_SIZE
-    lda directory+ROMDIR_SIZE+1
-    eor #$FF
-    sta directory+ROMDIR_SIZE+1
-    
-    lda directory+ROMDIR_DEST
-    sta $46
-    lda directory+ROMDIR_DEST+1
-    sta $47
-
-; TODO: Check if these are needed
-;random1		.BY $47			; initialized variable
-;random2		.BY $39			; initialized variable
+    	lda directory+ROMDIR_SIZE
+    	eor #$ff
+    	sta directory+ROMDIR_SIZE
+    	lda directory+ROMDIR_SIZE+1
+    	eor #$ff
+    	sta directory+ROMDIR_SIZE+1
+	
+    	lda directory+ROMDIR_DEST
+    	sta var46
+    	lda directory+ROMDIR_DEST+1
+    	sta var47
 
 ReadFile
 * ===========================================================================
-
-; TODO: Check if needed
-;		jsr copydir
-;
-;		;-- Complement the file size bytes, to facilitate bounds check
-;		inc directory+R_SIZE
-;		inc directory+R_SIZE+1
 
 setCartAddress
 		;-- Set the cart address to the data of this file
@@ -486,7 +464,7 @@ readDataLoop	;-- While there's still data to read, do the loop
 		inc directory+ROMDIR_SIZE+1
 		BEQ dataDone
 .10
-        JSR RRRR
+        JSR readByte
 
 		;-- Bump the cart page offset counter
 .20		INX
@@ -504,19 +482,21 @@ readDataLoop	;-- While there's still data to read, do the loop
 
 dataDone	RTS
 
-		STZ $46
-		STZ $48
-		LDA #$24 
-		STA $47
-		STA $49 
-		TYA
-		JSR $02DE		; Prepare shift register
-		LDX #$00
-		JSR $03D9		; Read data
+; TODO: Pretty up and find original source
+checksum
+		STZ var46
+		STZ var48
+		LDA #$24
+		STA var47
+		STA var49
+.21		TYA
+		JSR PrepareShiftRegister
+		LDX #0
+.30		JSR readByte		; Read data
 		INX
-		BNE $036B
+		BNE .30
 		INY
-		BPL $0365
+		BPL .21
 
 LoadAndHash
 * ===========================================================================
@@ -526,35 +506,34 @@ LoadAndHash
 *   - Y defines cart page to be loaded
 *   - hashcontrol defines the number of passes for the check
 
-	ldx #BUFFERLENGTH-1
-.10	  stz buffer0,x	; start off initializing buffer0 and buffer1
-	  dex
-	bpl .10
-
-; TODO: Check if necessary
-; .f0	lda hashpage
-; 	 	jsr SETCARTBLOCK
+		ldx #BUFFERLENGTH-1
+.10	  	stz buffer0,x	; start off initializing buffer0
+	  	  dex
+		bpl .10
 
 .f0
 		lda JOYSTICK		; clear screen if user pressed stick
 		beq .f1
 		jsr ClearPalette
 
-.f1	 	lda $03f8 ; TODO: Give name to address
-		sta hashloop
+* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+* Do the actual hash of the current buffer
+
+.f1	    LDA hashcount
+	    STA hashloop
 
 ; TODO: Pretty up code
 		LDY #$0F
-		LDA ($48),y
+.f2		LDA (var48),y
 		STA $0011,y
 		DEY
-		BPL $038A
+		BPL .f2
 
 	    LDX #BUFFERLENGTH	; Exclusive-or with original buffer, 
-.3	      LDA buffer0-1,X	; and copy back over first n bytes
+.f3	      LDA buffer0-1,X	; and copy back over first n bytes
 	      STA buffer1-1,X
 	      DEX
-	    BNE .3
+	    BNE .f3
 
 * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 * Do the actual hash of the current buffer
@@ -585,27 +564,22 @@ LoadAndHash
 		STA buffer0-1,x		
 		DEX
 		BNE .2
-		LDA $48
+		LDA var48
 		CLC
 		ADC #$10
-		STA $48
+		STA var48
 		BCC .4
-		INC $49
+		INC var49
 .4		CMP #$00
-		LDA $49
+		LDA var49
 		SBC #$A3
 		BCC .f0		; Next hash page?		
 		RTS		
 
-;.4	    dec hashsubpage
-;	   bne .f2
-;	  inc hashpage
-;	 bne .f0
-
 * ===========================================================================
 * ===========================================================================
 
-RRRR
+readByte	
 		;-- Get the next byte and bump the RAM address
 		LDA RCART_0
 		STA (var46)
@@ -624,9 +598,6 @@ SuzyValues
 		.BYTE $01
 		.BYTE $00
 		.BYTE $00
-;		.BYTE >{FILE0ADDRESS+32} // TODO: Probably remove
-;		.BYTE <{FILE0ADDRESS+32}
-
 
 SuzyOffsets
 		.BYTE <SPRGO
@@ -639,9 +610,6 @@ SuzyOffsets
 		.BYTE <HOFFL
 		.BYTE <VOFFL
 
-;		.BYTE <SCBNEXTH // TODO: Probably remove
-;		.BYTE <SCBNEXTL
-
 SETVALS_COUNT	.EQ *-SuzyOffsets	; number of values to INIT in loop
 
 * ===========================================================================
@@ -651,7 +619,7 @@ SETVALS_COUNT	.EQ *-SuzyOffsets	; number of values to INIT in loop
 * ===========================================================================
 
 sboxloop	.BY NUMSHUFFLES		; initialized variable
-blocksize	.BY 4
+hashcount	.BY 4
 
 * ===========================================================================
 * ===========================================================================
@@ -687,47 +655,3 @@ temp .= *-$0400
 ;		.OR ENDADDRESS
 		.OR $A300
 sbox	.DS $100
-
-
-
-
-* =================== Clear away
-
-;skipcount
-;	#IF ROMSIZE=128*1024
-;		.BY %00111111	; rotate right 13 times
-;	#ENDIF
-;	#IF ROMSIZE=256*1024
-;		.BY %11111111	; rotate 7 times
-;	#ENDIF
-;	#IF ROMSIZE=512*1024
-;		.BY %00011111	; rotate 4 times
-;	#ENDIF
-;	#IF *=skipcount
-;		ECHO "ERROR: ROMSIZE must be one of 128k, 256k or 512k"
-;	#ENDIF
-;
-;.f2	      sec
-;	      ldx #RESULTLENGTH
-;.f3		lda RCART_0	; get byte from cart
-; #IF ROMPAGESIZE/256>2
-;		ldy #{ROMPAGESIZE/256}-1
-; #ENDIF
-;.f4		  adc RCART_0	; combine with next bytes
-; #IF ROMPAGESIZE/256>2
-;		  dey
-;		 bne .f4
-; #ENDIF
-;		sta buffer1+RESULTLENGTH-1,x
-;		dex
-;	       bne .f3		; loop exits with x = 0
-;	      lsr skipcount
-; #IF ROMSIZE=128*1024
-; 	      ror skipcount2
-; #ENDIF
-;	     bne .4
-;
-;
-;
-;		LDA #HASH_COUNT
-;		STA hashloop
