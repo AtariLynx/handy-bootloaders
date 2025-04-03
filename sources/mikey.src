@@ -231,10 +231,9 @@ Decrypt
 		STA dest,x		; Operand corresponds to $5047
 		DEX
 		BPL .21
-; TODO: Name routine X 
- 		JSR $505D		; Call routine X
+ 		JSR $505D		; Call reduce method
 		BCC .22
-		JSR $505D		; Call routine X
+		JSR $505D		; Call reduce method
 .22		LSR $08
 		BNE .20
 		INY
@@ -242,7 +241,7 @@ Decrypt
 		BCC .19
 		RTS				; scratch0 + scratch1 contains enc^2 at first pass
 
-; Routine X (unknown purpose: Step in montgomery multiplication process?)
+MontgomeryReduce
 		LDA acc0
 		STA $506C
 		LDA (acc0)
