@@ -34,12 +34,12 @@ DISP			.EQ $FEC1-WORK_ORG
 * Note!  dest is presumed to be at memory location zero
 dest		.DS	2
 
-checksum	.ds 1		; checksum used during decryption
+checksum	.DS 1		; checksum used during decryption
 
 powerdowncount	.DS 2
 
-ptr		.ds 2
-num_blocks	.ds 1
+ptr			.DS 2
+num_blocks	.DS 1
 
 bitcount	.DS 1		; temporary counter
 bytecount	.DS 1		; temporary counter
@@ -51,6 +51,7 @@ scratch0	.DS SIZEKEY	; scratch areas must be in zero page
 scratch1	.DS SIZEKEY
 scratch2	.DS SIZEKEY
 inputcode	.DS SIZEKEY
+
 encrypted_area	.EQ inputcode
 
 * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -188,7 +189,9 @@ InitSuzy
 		STZ SDONEACK	; Clear SDONEACK
 		JMP InitMikey	; Call routine to initialize Mikey
 
-Decrypt
+Decrypt .EQ *
+		.ORG WORK_ORG
+
 		LDA #<scratch0
 		STA acc0		; Pointer to start of zero page temporary data
 		LDA #<scratch1	; End of working data zero page address
@@ -196,12 +199,13 @@ Decrypt
 		LDA #<inputcode
 		STA input1		; Pointer to start of encrypted data in zero page range
 		JSR $5018		; Currently FED9: perform first multiplication of enc * enc * enc (encrypted^3)
-		LDA acc0		; Transfer pointer to data with enc^2 ...
-		STA input1		; ... to encryption data
+		LDA acc0		; Transfer pointer to data with enc^2
+		STA input1		; to encryption data
 		LDA #<scratch2	; Set pointer for work data right after squared encryption data
 		STA acc0		; Perform second multiplication of enc * enc * enc (encrypted^3)
 
 ; Clear all 51 values of temporary work data
+ClearTemp
 		LDY #SIZEKEY-1		
 		LDA #0
 .10		STA (acc0),y
@@ -214,16 +218,16 @@ Decrypt
 		STA temp0		; Store in work variable
 		DEC bitcount
 .20		LDA acc0		; Change data address to work on
-		STA $5037		; Self-modifying code (see FEF7)
-		STA $5043		; Self-modifying code (see FF04)
-		STA $5047		; Self-modifying code (see FF08)
+		STA $5037		; Self-modifying code ($FEF7)
+		STA $5043		; Self-modifying code ($FF04)
+		STA $5047		; Self-modifying code ($FF08)
 		CLC
 		LDX #SIZEKEY-1
-		ROL $00,x		; Operand corresponds to $5037
+.23		ROL $00,x		; Operand corresponds to $5037
 		DEX
-		BPL $FEF7
+		BPL .23
 		ASL $0A
-		BCC $FF11
+		BCC .24
 		LDX #$32
 		CLC
 .21		LDA dest,x		; Operand corresponds to $5043
@@ -231,9 +235,9 @@ Decrypt
 		STA dest,x		; Operand corresponds to $5047
 		DEX
 		BPL .21
- 		JSR $505D		; Call reduce method
+ 		JSR MontgomeryReduce
 		BCC .22
-		JSR $505D		; Call reduce method
+.24		JSR $505D
 .22		LSR $08
 		BNE .20
 		INY
@@ -286,6 +290,8 @@ done
 		.BYTE $04, $B5, $DD, $4D		; .0..0.0...0...0.0.00..0.
 		.BYTE $05, $19, $11, $68, $FF	; 000..00.000.000.0..0.000........ 
 		.BYTE $00						;$ End of quadrant
+
+		.OR $FF80
 
 ; Start of boot sequence
 		LDA SUZYHREV	; Load hardware version (always 1.0 for hardware)
@@ -380,7 +386,7 @@ SUZYVALS_COUNT	.EQ *-SuzyValues	; number of values to INIT in loop
 
 ; Reserved registers
 		.BYTE $00	; Reserved
-		.BYTE $80	; MAPCTL value
+		.BYTE $F0	; MAPCTL value
 	 	.WORD $3000	; NMI vector
 	 	.WORD $FF80	; Boot vector
 		.WORD $FF80	; IRQ vector
