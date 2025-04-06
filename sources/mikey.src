@@ -173,7 +173,7 @@ retry
 		BNE InitSuzy
 		INC powerdowncount+1
 		BNE InitSuzy
-		STZ SYSCTL1		; Reset cart address counter
+		STZ SYSCTL1		; Power down console
 .6		BRA .6			; Give up and loop forever 
 
 ; Initialize Suzy
