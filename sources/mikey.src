@@ -32,25 +32,25 @@ DISP			.EQ $FEC1-WORK_ORG
 * These are the variables as declared by the Mikey ROM code
 
 * Note!  dest is presumed to be at memory location zero
-dest		.DS	2
+dest		    .DS	2
 
-checksum	.DS 1		; checksum used during decryption
+checksum	    .DS 1		; checksum used during decryption
 
 powerdowncount	.DS 2
 
-ptr			.DS 2
-num_blocks	.DS 1
+ptr			    .DS 2
+num_blocks	    .DS 1
 
-bitcount	.DS 1		; temporary counter
-bytecount	.DS 1		; temporary counter
-temp0		.DS 1
-acc0		.DS 2		; accumulator pointers
-acc1		.DS 2
-input1		.DS 2		; pointer to multiplicand
-scratch0	.DS SIZEKEY	; scratch areas must be in zero page
-scratch1	.DS SIZEKEY
-scratch2	.DS SIZEKEY
-inputcode	.DS SIZEKEY
+bitcount	    .DS 1		; temporary counter
+bytecount	    .DS 1		; temporary counter
+temp0		    .DS 1
+acc0		    .DS 2		; accumulator pointers
+acc1		    .DS 2
+input1		    .DS 2		; pointer to multiplicand
+scratch0	    .DS SIZEKEY	; scratch areas must be in zero page
+scratch1	    .DS SIZEKEY
+scratch2	    .DS SIZEKEY
+inputcode	    .DS SIZEKEY
 
 encrypted_area	.EQ inputcode
 
@@ -81,7 +81,7 @@ SetCartBlock
 		CLC
 .2		INX 
 		STX SYSCTL1
-.0		LDX #$02
+.0		LDX #POWERON
 		STX SYSCTL1		; Power on and strobe 
 		ROL A
 		STZ IODAT		; Zero for bit to shift into register
@@ -134,7 +134,7 @@ ReadBlock
 .5		LDA RCART_0		; Read cart (using strobe CART0)
 		STA inputcode,x	; Store block data in ZP from $AA to $DC
 		DEX
-		BPL .5		; Next byte
+		BPL .5		    ; Next byte
 
 ; Decrypt current block
 		ORA inputcode+1	; Accumulator contains last byte of encrypted data
@@ -174,7 +174,7 @@ retry
 		BNE InitSuzy
 		INC powerdowncount+1
 		BNE InitSuzy
-		STZ SYSCTL1		; Reset cart address counter
+		STZ SYSCTL1		; Power down console
 .6		BRA .6			; Give up and loop forever 
 
 ; Initialize Suzy
@@ -295,7 +295,7 @@ done
 
 ; Start of boot sequence
 		LDA SUZYHREV	; Load hardware version (always 1.0 for hardware)
-		BEQ $0000		
+		BEQ $0000
 		PLA
 		PLA
 		PLA

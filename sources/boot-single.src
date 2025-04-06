@@ -1,0 +1,13 @@
+0200   9C F9 FF             STZ MAPCTL
+0203   A9 04                LDA #TXOPEN
+0205   8D 8C FD             STA SERCTL
+0208   A9 08                LDA #REST_OUTPUT
+020A   8D 8B FD             STA IODAT
+020D   A2 00                LDX #$00
+020F   A0 97                LDY #$97
+0211   AD B2 FC   L0211     LDA RCART0
+0214   9D 68 FB             STA $FB68,X
+0217   E8                   INX
+0218   88                   DEY
+0219   D0 F6                BNE L0211
+021B   4C 68 FB             JMP $FB68
