@@ -199,10 +199,10 @@ bootContinue
 
 		;-- Initialize and fire off the sprite engine
 		LDX #SETVALS_COUNT-1
-.B0		  LDA SuzyValues,X
-		  LDY SuzyOffsets,X
-		  STA $FC00,Y		; SUZY lives at $FC00
-		  DEX
+.B0		LDA SuzyValues,X
+		LDY SuzyOffsets,X
+		STA $FC00,Y		; SUZY lives at $FC00
+		DEX
 		bpl .B0		; X will exit with zero
 
 		;-- Catch a snooze, letting Suzy drive the bus
@@ -286,16 +286,17 @@ MakeSbox
 		 BNE .2
 
 * ===========================================================================
+* Hash the cartridge ROM and verify integrity
 
 ; TODO: Find original code
-		ldy #$01
-		JSR checksum
-		LDA #$d0
-		STA $0372		; Modify $372 from BPL $0365 to BNE $0365
+		LDY #$01			; Start hashing from page 1
+		JSR BuildChecksum	; Hash pages $01-$7F
+		LDA #$D0
+		STA $0372			; Modify $372 from BPL $0365 to BNE $0365
 		LDY #$81
 		LDA #$02
-		STA $03F8
-		JSR checksum
+		STA hashcount
+		JSR BuildChecksum
 
 terminate
 		;-- OK, hash string created.  
@@ -447,7 +448,7 @@ setCartAddress
         eor #$ff
         tay
         jsr SetCartOffset
-		
+
 		lda #$ff
 		sec			; get complement of bytes remaining in page
 		sbc directory+ROMDIR_OFFSET		
@@ -483,7 +484,7 @@ readDataLoop	;-- While there's still data to read, do the loop
 dataDone	RTS
 
 ; TODO: Pretty up and find original source
-checksum
+BuildChecksum
 		STZ var46
 		STZ var48
 		LDA #$24
@@ -506,15 +507,15 @@ LoadAndHash
 *   - Y defines cart page to be loaded
 *   - hashcontrol defines the number of passes for the check
 
-		ldx #BUFFERLENGTH-1
-.10	  	stz buffer0,x	; start off initializing buffer0
-	  	  dex
-		bpl .10
+		LDX #BUFFERLENGTH-1
+.10		STZ buffer0,x	; start off initializing buffer0
+		DEX
+		BPL .10
 
 .f0
-		lda JOYSTICK		; clear screen if user pressed stick
-		beq .f1
-		jsr ClearPalette
+		LDA JOYSTICK		; clear screen if user pressed stick
+		BEQ .f1
+		JSR ClearPalette
 
 * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 * Do the actual hash of the current buffer
@@ -522,17 +523,17 @@ LoadAndHash
 .f1	    LDA hashcount
 	    STA hashloop
 
-; TODO: Pretty up code
+		;-- Copy 16 bytes from hash data into upper buffer0
 		LDY #$0F
 .f2		LDA (var48),y
-		STA $0011,y
+		STA $0011,y			; Store to buffer0[16..31]
 		DEY
 		BPL .f2
-
+		;-- Copy buffer0 to buffer1
 	    LDX #BUFFERLENGTH	; Exclusive-or with original buffer, 
-.f3	      LDA buffer0-1,X	; and copy back over first n bytes
-	      STA buffer1-1,X
-	      DEX
+.f3	    LDA buffer0-1,X	; and copy back over first n bytes
+	    STA buffer1-1,X
+	    DEX
 	    BNE .f3
 
 * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -540,7 +541,7 @@ LoadAndHash
 
 		TXA			; initialize A to zero
 		STZ tickler
-.1		LDX #BUFFERLENGTH-1	; Count through buffer
+.1		LDX #BUFFERLENGTH-1 ; Count through buffer
 .0		CLC
 		ADC buffer1,X
 		STA buffer1,X
@@ -561,20 +562,22 @@ LoadAndHash
 		LDX #RESULTLENGTH
 .2		LDA buffer0-1,x
 		EOR buffer1-1,x
-		STA buffer0-1,x		
+		STA buffer0-1,x
 		DEX
 		BNE .2
+		;-- Advance hash source pointer by 16 bytes
 		LDA var48
 		CLC
 		ADC #$10
 		STA var48
 		BCC .4
 		INC var49
+		;-- Check if we've hashed all data ($2400 to $A2FF)
 .4		CMP #$00
 		LDA var49
-		SBC #$A3
-		BCC .f0		; Next hash page?		
-		RTS		
+		SBC #>sbox
+		BCC .f0		; Next hash page?
+		RTS
 
 * ===========================================================================
 * ===========================================================================
@@ -585,7 +588,7 @@ readByte
 		STA (var46)
 		INC var46
 		BNE .20
-		INC var46+1
+		INC var47
 .20     RTS
 
 SuzyValues
