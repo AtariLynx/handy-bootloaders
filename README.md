@@ -1,5 +1,6 @@
 # Handy Boot Loaders
-Boot loaders for Atari Lynx
+
+Information and source code for the Epyx boot loaders for Atari Lynx commercial games.
 
 ## Compiling Boot Loaders
 
@@ -28,8 +29,8 @@ If you want to use the DEBUG or BUILDCHECK versions, you can either alter the so
 Alternatively, you can compile with the flag defined for compilation:
 
 ```
-asm boot-epyx55.src +s +l +DDEBUG
-asm boot-epyx55.src +s +l +DBUILDCHECK
+asm boot-epyx55.src +s +l +DDEBUG +oboot.bin
+asm boot-epyx55.src +s +l +DBUILDCHECK +oboot.bin
 ```
 
 The result will be two compiled files binaries and accompanying files with build information:
